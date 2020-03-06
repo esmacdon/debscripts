@@ -1,0 +1,12 @@
+#!/bin/bash
+
+su
+
+sudo systemctl stop systemd-logind.service
+sudo rmmod nvidia_drm
+sudo rmmod nvidia_modeset
+sudo rmmod nvidia
+
+sudo tee /proc/acpi/bbswitch <<< OFF
+
+exit
