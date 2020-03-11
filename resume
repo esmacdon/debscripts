@@ -5,6 +5,9 @@ case $1/$2 in
     echo "Going to $2..."
     # Place your pre suspend commands here, or `exit 0`
     # if no pre suspend action required
+	/home/evan/gpustart
+
+	echo "sleep" > /home/evan/sleep
 	exit 0
     ;;
   post/*)
@@ -12,5 +15,7 @@ case $1/$2 in
     # Place your post suspend (resume) commands here, or `exit 0` 
     # if no post suspend action required
 	/home/evan/gpuexit
+
+	echo "wake" > /home/evan/wake
     ;;
 esac
