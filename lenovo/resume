@@ -1,0 +1,30 @@
+#!/bin/sh
+
+case $1/$2 in
+  pre/*)
+    echo "Going to $2..."
+    # Place your pre suspend commands here, or `exit 0`
+    # if no pre suspend action required
+	/home/evan/gpustart
+	echo "sleep" > /home/evan/sleep
+	exit 0
+    ;;
+  post/*)
+    echo "Waking up from $2..."
+    # Place your post suspend (resume) commands here, or `exit 0` 
+    # if no post suspend action required
+	sleep 0
+	sudo pkill nvidia*
+	/home/evan/gpuexit
+	sudo pkill nvidia*
+	/home/evan/gpuexit
+	sudo pkill nvidia*
+	/home/evan/gpuexit
+	sudo pkill nvidia*
+	/home/evan/gpuexit
+	sudo pkill nvidia*
+	/home/evan/gpuexit
+	sudo x86_energy_perf_policy --turbo-enable 1
+	echo "wake" > /home/evan/wake
+    ;;
+esac
