@@ -1,0 +1,5 @@
+#!/bin/bash
+
+sudo modprobe nvidia_drm
+sudo modprobe nvidia_modeset
+sudo modprobe nvidia
