@@ -1,0 +1,11 @@
+[Unit]
+Description=NV Killer
+After=suspend.target hibernate.target hybrid-sleep.target
+
+[Service]
+ExecStart=sudo /home/evan/scripthing
+#User=my_user_name
+#Environment=DISPLAY=:0
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target
