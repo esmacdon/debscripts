@@ -1,1 +1,2 @@
 %pstate ALL=NOPASSWD: /usr/lib/systemd/system-sleep/resume
+%pstate ALL=NOPASSWD: /home/evan/scripthing
