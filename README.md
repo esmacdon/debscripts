@@ -8,3 +8,5 @@ resume should go in /lib/systemd/system-sleep/
 
 nvpstate should go in /etc/sudoers.d/*'
   make sure user is in group pstate
+
+scripthing should go in /home/evan/
