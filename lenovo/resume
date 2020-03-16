@@ -1,3 +1,4 @@
+  GNU nano 4.8                                       /usr/lib/systemd/system-sleep/resume                                                  
 #!/bin/sh
 
 case $1/$2 in
@@ -13,11 +14,9 @@ case $1/$2 in
     echo "Waking up from $2..."
     # Place your post suspend (resume) commands here, or `exit 0` 
     # if no post suspend action required
-        sudo x86_energy_perf_policy --turbo-enable 1
-
-        #sleep 2
-        sudo /home/evan/scripthing &
+        sudo modprobe rtl8822be &
+        sudo x86_energy_perf_policy --turbo-enable 1 &
         echo "wake" > /home/evan/wake
-        wait %1
+        wait %1 %2
     ;;
 esac
