@@ -1,0 +1,666 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <semaphore.h>
+#include <stdbool.h>
+sem_t semaphore;
+sem_t headLineN;
+sem_t headLineS;
+sem_t headLineE;
+sem_t headLineW;
+sem_t NS;
+sem_t EW;
+
+sem_t ltSemA; // needed for NW, SS || EN, WW
+sem_t ltSemB; // needed for SE, NN || WS, EE
+
+sem_t stRTSemA; // needed for SS, ES || WW
+sem_t stRTSemB; // needed for NN, WN || EE
+
+sem_t ltRTSemA; // needed for NW, SW || EN
+sem_t ltRTSemB; // needed for SE, NE || WS
+char flowA[2]; // N AND E
+char flowB[2]; // S AND W
+
+int inFlowA;
+int inFlowB;
+
+clock_t timer;
+float currTime;
+
+int carID = 0;
+
+typedef struct _directions
+{
+    char dir_original;
+    char dir_target;
+
+}   directions;
+
+typedef struct _light
+{
+    bool NS;
+    char state;
+}   light;
+
+light* init;
+
+void startLightCycle(light* init)
+{
+    init->NS = true;
+
+
+    while(1)
+    {
+        if(!init->NS)
+        {
+        sem_wait(&NS);
+        sem_wait(&NS);
+        sem_wait(&NS);
+        sem_wait(&NS);
+
+        sem_post(&EW);
+        sem_post(&EW);
+        sem_post(&EW);
+        sem_post(&EW);
+
+        }
+        else
+        {
+            sem_wait(&EW);
+            sem_wait(&EW);
+            sem_wait(&EW);
+            sem_wait(&EW);
+
+            sem_post(&NS);
+            sem_post(&NS);
+            sem_post(&NS);
+            sem_post(&NS);
+
+        }
+
+            sem_wait(&semaphore);
+        init->state = 'G';
+            sem_post(&semaphore);
+            printf("Light is GREEN\n");
+        sleep(18);
+            sem_wait(&semaphore);
+        init->state = 'Y';
+            sem_post(&semaphore);
+                        printf("Light is YELLOW\n");
+        sleep(2);
+            sem_wait(&semaphore);
+        init->state = 'R';
+            sem_post(&semaphore);
+                        printf("Light is RED\n");
+            sem_wait(&semaphore);
+        init->NS = !init->NS;
+                    printf("Direction Changed\n");
+            sem_post(&semaphore);
+
+            usleep(1100 * 1000); // Timer needs 1100MS correction after each cycle
+
+    }
+}
+
+void ArriveIntersection(directions dir, int cid)
+{
+
+        printf("Time %0.1f: Car %d (%c %c) arriving\n", currTime,cid, dir.dir_original, dir.dir_target);
+    switch(dir.dir_original)
+    {
+
+            // ARRIVING NORTH ///////////////////////////////////////////////////////////
+        case 'N':
+            sem_wait(&headLineN);  // Wait for Headline position
+            do
+            {
+                if(dir.dir_target !='E')
+                {
+                sem_wait(&NS);
+                sem_post(&NS);
+                }
+            if(dir.dir_target == 'W')
+            {
+                if(strcmp(flowA,"NW"))
+                {
+                sem_wait(&ltSemA);
+                sem_wait(&ltRTSemA);
+                if(inFlowA==0)
+                {
+                    inFlowA++;
+                    strcpy(flowA, "NW");
+                }
+                }
+                else
+                    inFlowA++;
+
+            }
+            else if(dir.dir_target == 'N')
+            {
+                if(strcmp(flowA, "NN"))
+                {
+                sem_wait(&ltSemB);
+                sem_wait(&stRTSemB);
+                if(inFlowA==0)
+                {
+                    inFlowA++;
+                    strcpy(flowA, "NN");
+                }
+                }
+                else
+                    inFlowA++;
+
+            }
+            else if(dir.dir_target == 'E')
+            {
+                if(strcmp(flowA, "NE"))
+                {
+                sem_wait(&ltRTSemB);
+                if(inFlowA==0)
+                {
+                    inFlowA++;
+                    strcpy(flowA, "NE");
+                }
+                }
+                else
+                    inFlowA++;
+
+
+            }
+
+            if((!(init->NS) && !(init->state=='G')) && !(dir.dir_target == 'E'))
+            {
+                 printf("trashing\n");
+                sem_post(&ltSemA);
+                sem_post(&ltSemB);
+                sem_post(&ltSemB);
+                sem_post(&stRTSemB);
+                sem_post(&ltRTSemB);
+            }
+
+            }while((!(init->NS) && !(init->state=='G')) && !(dir.dir_target == 'E'));
+            break;
+
+            // //////////////////////////////////////////////////////////////////////////////
+            // ARRIVING SOUTH////////////////////////////////////////////////////////////////
+            // //////////////////////////////////////////////////////////////////////////////
+
+        case 'S':
+        sem_wait(&headLineS);
+        do
+        {
+            if(dir.dir_target != 'W')
+            {
+            sem_wait(&NS);
+            sem_post(&NS);
+            }
+
+        if(dir.dir_target == 'W') // right
+        {
+            sem_wait(&ltRTSemA);
+
+            if(strcmp(flowB, "NN"))
+            {
+            sem_wait(&ltRTSemA);
+            if(inFlowB==0)
+            {
+                inFlowB++;
+                strcpy(flowB, "NN");
+            }
+            }
+            else
+                inFlowB++;
+
+        }
+        else if(dir.dir_target == 'S') // straight
+        {
+            printf("SS\n");
+            sem_wait(&ltSemA);
+            sem_wait(&stRTSemA);
+
+        }
+        else if(dir.dir_target == 'E') // left
+        {
+
+            sem_wait(&ltSemB);
+            sem_wait(&ltRTSemB);
+
+
+        }
+
+        if((!(init->NS) && !(init->state=='G')) && !(dir.dir_target == 'W'))
+        {
+            sem_post(&ltRTSemA);
+            sem_post(&ltSemA);
+            sem_post(&stRTSemA);
+            sem_post(&ltSemB);
+            sem_post(&ltRTSemB);
+        }
+
+        }while((!(init->NS) && !(init->state=='G')) && !(dir.dir_target == 'W'));
+            break;
+        case 'E':
+        sem_wait(&headLineE);
+        do
+        {
+
+            if(dir.dir_target!='S') // are we making a right turn? if so we can skip the green light semaphore for E/W
+            {
+            sem_wait(&EW);
+            sem_post(&EW);
+            }
+
+        if(dir.dir_target == 'N') // left
+        {
+            sem_wait(&ltSemA);
+            sem_wait(&ltRTSemA);
+
+
+        }
+        else if(dir.dir_target == 'S') // right
+        {
+            sem_wait(&stRTSemA);
+
+
+        }
+        else if(dir.dir_target == 'E') // straight
+        {
+            sem_wait(&ltSemB);
+            sem_wait(&stRTSemB);
+
+
+
+        }
+
+        if((init->NS) && !(init->state=='G') && !(dir.dir_target == 'S'));
+        {
+            sem_post(&ltSemA);
+            sem_post(&ltRTSemA);
+            sem_post(&stRTSemA);
+            sem_post(&ltSemB);
+            sem_post(&stRTSemB);
+        }
+
+        }while((init->NS) && !(init->state=='G') && !(dir.dir_target == 'S'));
+            break;
+        case 'W':
+        sem_wait(&headLineW);
+        do
+        {
+            printf("waiting for semaphore EW\n");
+            if(dir.dir_target!= 'N')
+            {
+                sem_wait(&EW);
+                sem_post(&EW);
+            }
+
+
+            printf("got semaphore EW\n");
+        if(dir.dir_target == 'N') // right
+        {
+            printf("waiting for sem\n");
+            sem_wait(&stRTSemB);
+            printf("got sem\n");
+
+        }
+        else if(dir.dir_target == 'S') // left
+        {
+            sem_wait(&ltSemB);
+            sem_wait(&ltRTSemB);
+
+
+        }
+        else if(dir.dir_target == 'W') // straight
+        {
+            sem_wait(&ltSemA);
+            sem_wait(&stRTSemA);
+
+
+        }
+
+        if((init->NS) && !(init->state=='G') && !(dir.dir_target == 'N'));
+        {
+
+            sem_post(&stRTSemA);
+            sem_post(&ltSemB);
+            sem_post(&ltRTSemB);
+            sem_post(&ltSemA);
+            sem_post(&stRTSemA);
+        }
+
+        }while((init->NS) && !(init->state=='G') && !(dir.dir_target == 'N'));
+            break;
+    }
+
+}
+
+void CrossIntersection(directions dir, int cid)
+{
+        printf("Time %0.1f: Car %d (%c %c)          crossing\n", currTime,cid, dir.dir_original, dir.dir_target);
+        switch(dir.dir_original)
+        {
+            case 'N':
+                sem_post(&headLineN);
+                do
+                {
+                    //sem_post(&NS);
+                if(dir.dir_target == 'W') // left
+                {
+                    usleep(3000 * 1000);
+                    if(!strcmp(flowA, "NW") && inFlowA >0)
+                    {
+
+                    if(inFlowA==1)
+                    {
+                        sem_post(&ltSemA);
+                        sem_post(&ltRTSemA);
+
+                    }
+                    inFlowA--;
+                    strcpy(flowA, "");
+                    }
+                    else
+                    {
+                        sem_post(&ltSemA);
+                        sem_post(&ltRTSemA);
+                    }
+
+
+
+                }
+                else if(dir.dir_target == 'N') // straight
+                {
+                    usleep(2000 * 1000);
+
+                    if(!strcmp(flowA, "NN") && inFlowA > 0)
+                    {
+
+                    if(inFlowA==1)
+                    {
+                        printf("giving up NN \n");
+                        sem_post(&ltSemB);
+                        sem_post(&stRTSemB);
+
+                    }
+                    inFlowA--;
+                    strcpy(flowA, "");
+                    }
+                    else
+                    {
+                        printf("giving up NN \n");
+                        sem_post(&ltSemB);
+                        sem_post(&stRTSemB);
+                    }
+
+                }
+                else if(dir.dir_target == 'E') // right
+                {
+                    usleep(1000 * 1000);
+                    if(!strcmp(flowA, "NE") && inFlowA >0)
+                    {
+
+                    if(inFlowA==1)
+                    {
+                        sem_post(&ltRTSemB);
+
+                    }
+                    inFlowA--;
+                    strcpy(flowA, "");
+                    }
+                    else
+                    {
+                        sem_post(&ltRTSemB);
+                    }
+
+
+
+                }
+                }while(!(init->NS && (init->state=='G' || init->state =='Y')));
+                break;
+            case 'S':
+            sem_post(&headLineS);
+            do
+            {
+
+                //sem_post(&NS);
+            if(dir.dir_target == 'W') // right
+            {
+                usleep(1000 * 1000);
+                sem_post(&ltRTSemA);
+
+                if(!strcmp(flowB, "SW") && inFlowB >0)
+                {
+
+                if(inFlowB==1)
+                {
+                    sem_post(&ltRTSemA);
+
+                }
+                inFlowB--;
+                strcpy(flowB, "");
+                }
+                else
+                {
+                    sem_post(&ltRTSemA);
+                }
+
+
+            }
+            else if(dir.dir_target == 'S') // straight
+            {
+                usleep(2000 * 1000);
+                sem_post(&ltSemA);
+                sem_post(&stRTSemA);
+
+            }
+            else if(dir.dir_target == 'E') // left
+            {
+                usleep(3000 * 1000);
+                sem_post(&ltSemB);
+
+                sem_post(&ltRTSemB);
+
+
+            }
+            }while(!(init->NS && (init->state=='G' || init->state =='Y')));
+                break;
+            case 'E':
+            sem_post(&headLineE);
+            do
+            {
+                //sem_post(&EW);
+            if(dir.dir_target == 'N') // left
+            {
+                usleep(3000 * 1000);
+                sem_post(&ltSemA);
+                sem_post(&ltRTSemA);
+
+
+
+            }
+            else if(dir.dir_target == 'S') // right
+            {
+                usleep(1000 * 1000);
+                sem_post(&stRTSemA);
+
+
+            }
+            else if(dir.dir_target == 'E') // straight
+            {
+                usleep(2000 * 1000);
+                sem_post(&ltSemB);
+                sem_post(&stRTSemB);
+
+
+
+            }
+            }while(!((!init->NS) && (init->state=='G' || init->state =='Y')));
+                break;
+            case 'W':
+            sem_post(&headLineW);
+            do
+            {
+
+                //sem_post(&EW);
+            if(dir.dir_target == 'N') // right
+            {
+                usleep(1000 * 1000);
+                sem_post(&stRTSemA);
+
+            }
+            else if(dir.dir_target == 'S') // left
+            {
+                usleep(3000 * 1000);
+                sem_post(&ltSemB);
+                sem_post(&ltRTSemB);
+
+
+            }
+            else if(dir.dir_target == 'W') // straight
+            {
+                usleep(2000 * 1000);
+                sem_post(&ltSemA);
+                sem_post(&stRTSemA);
+
+
+            }
+            }while(((!init->NS) && !(init->state=='G' || init->state =='Y')) && !(dir.dir_target == 'N'));
+                break;
+        }
+    return;
+}
+
+void ExitIntersection(directions dir, int cid)
+{
+        printf("Time %0.1f: Car %d (%c %c)              exiting\n", currTime,cid, dir.dir_original, dir.dir_target);
+    return;
+}
+
+void Car(directions* dir)
+{
+
+    int cid = carID;
+    carID++;
+    //printf("created car w id %d\n",cid);
+    //printf("car has dir %c\n",dir->dir_original);
+    ArriveIntersection(*dir, cid);
+    CrossIntersection(*dir, cid);
+    ExitIntersection(*dir, cid);
+
+
+}
+
+void clockTimer()
+{
+    currTime = 0;
+    while(1)
+    {
+        usleep(100000);
+        currTime+=0.1;
+    }
+
+}
+
+void startProj()
+{
+    directions* def = (directions*)malloc(8*sizeof(directions));
+
+    pthread_t *car;
+    car = (pthread_t *)malloc(8*sizeof(*car));
+    usleep(1100 * 1000);
+    def->dir_original = 'N';
+    def->dir_target = 'N';
+        pthread_create(car, NULL, (void*)Car, def);
+            usleep(900 * 1000);
+        (def+1)->dir_original = 'N';
+        (def+1)->dir_target = 'N';
+        pthread_create(car+1, NULL, (void*)Car, def+1);
+            usleep(1300 * 1000);
+        (def+2)->dir_original = 'N';
+        (def+2)->dir_target = 'W';
+        pthread_create(car+2, NULL, (void*)Car, def+2);
+
+            usleep(200 * 1000);
+        (def+3)->dir_original = 'S';
+        (def+3)->dir_target = 'S';
+        pthread_create(car+3, NULL, (void*)Car, def+3);
+            usleep(700 * 1000);
+        (def+4)->dir_original = 'S';
+        (def+4)->dir_target = 'E';
+        pthread_create(car+4, NULL, (void*)Car, def+4);
+            usleep(200 * 1000);
+        (def+5)->dir_original = 'N';
+        (def+5)->dir_target = 'N';
+        pthread_create(car+5, NULL, (void*)Car, def+5);
+            usleep(1300 * 1000);
+        (def+6)->dir_original = 'E';
+        (def+6)->dir_target = 'N';
+        pthread_create(car+6, NULL, (void*)Car, def+6);
+            usleep(200 * 1000);
+        (def+7)->dir_original = 'W';
+        (def+7)->dir_target = 'N';
+        pthread_create(car+7, NULL, (void*)Car, def+7);
+
+
+
+}
+
+int main(void) {
+
+    // initialize semaphore, only to be used with threads in this process, set value to 1
+
+    sem_init(&semaphore, 0, 1);
+    sem_init(&NS, 0, 4);
+    sem_init(&EW, 0, 4);
+    sem_init(&headLineN, 0, 1);
+    sem_init(&headLineS, 0, 1);
+    sem_init(&headLineE, 0, 1);
+    sem_init(&headLineW, 0, 1);
+    sem_init(&ltSemA, 0, 1);
+    sem_init(&ltSemB, 0, 1);
+    sem_init(&stRTSemA, 0, 1);
+    sem_init(&stRTSemB, 0, 1);
+    sem_init(&ltRTSemA, 0, 1);
+    sem_init(&ltRTSemB, 0, 1);
+
+    directions* def = (directions*)malloc(sizeof(directions));
+    def->dir_target = 'N';
+    def->dir_original = 'N';
+
+
+    pthread_t *lightThread;
+    init = (light*)malloc(sizeof(light));
+    lightThread= (pthread_t *)malloc(sizeof(*lightThread));
+
+    pthread_t clock;
+
+    pthread_t *car;
+    car = (pthread_t *)malloc(sizeof(*car));
+
+    // start the thread
+    printf("Starting thread, semaphore is unlocked.\n");
+    pthread_create(lightThread, NULL, (void*)startLightCycle, init);
+    sleep(1);
+
+    pthread_create(&clock, NULL, (void*)clockTimer, NULL);
+    usleep(100 * 1000);
+        pthread_create(car, NULL, (void*)startProj, NULL);
+/*
+    usleep(1500 * 1000);
+
+    pthread_create(car, NULL, (void*)Car, def);
+    pthread_create(car, NULL, (void*)Car, def);
+
+*/
+    while(1)
+{
+    usleep(1000 * 300);
+    //printf("            FLOW A = %d\n",inFlowA);
+    //printf("            CURRENT FLOW IS %s\n",flowA);
+    }
+
+    return 0;
+}
